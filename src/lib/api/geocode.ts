@@ -35,8 +35,16 @@ export async function geocodeSearch(query: string): Promise<GeocodeResponse> {
       addresstype?: string;
     }>;
 
+    const settlementTypes = new Set(["city", "town", "village"]);
+    const seen = new Set<string>();
     const results = data
-      .filter((d) => d.addresstype === "city")
+      .filter((d) => settlementTypes.has(d.addresstype ?? ""))
+      .filter((d) => {
+        const key = `${d.lat},${d.lon}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
       .map((d) => ({
         name: d.display_name as string,
         lat: Number(d.lat),

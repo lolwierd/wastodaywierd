@@ -90,7 +90,7 @@ export default function LocationSearch() {
             setQ(e.target.value);
             setOpen(true);
           }}
-          placeholder="Search city"
+          placeholder="Search city, town, or village"
           className="w-full px-3 py-2 rounded-md border border-black/10 dark:border-white/10 bg-white/70 dark:bg-zinc-900/50 backdrop-blur text-sm outline-none focus:ring-2 focus:ring-blue-500"
         />
         {open && (results.length > 0 || loading) && (
@@ -98,9 +98,9 @@ export default function LocationSearch() {
             {loading && (
               <div className="px-3 py-2 text-xs text-gray-500">Searching…</div>
             )}
-            {results.map((r, i) => (
+            {results.map((r) => (
               <button
-                key={`${r.lat},${r.lon}-${i}`}
+                key={`${r.lat},${r.lon}`}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-zinc-800"
                 onClick={() => applyLocation(r.lat, r.lon, r.name)}
               >
