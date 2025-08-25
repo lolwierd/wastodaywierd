@@ -22,11 +22,18 @@ export async function GET(req: NextRequest) {
     next: { revalidate },
   });
   if (!res.ok) return Response.json({ results: [] }, { status: 200 });
-  const data = (await res.json()) as Array<{ display_name: string; lat: string; lon: string }>;
-  const results = data.map((d) => ({
-    name: d.display_name as string,
-    lat: Number(d.lat),
-    lon: Number(d.lon),
-  }));
+  const data = (await res.json()) as Array<{
+    display_name: string;
+    lat: string;
+    lon: string;
+    addresstype?: string;
+  }>;
+  const results = data
+    .filter((d) => d.addresstype === "city")
+    .map((d) => ({
+      name: d.display_name as string,
+      lat: Number(d.lat),
+      lon: Number(d.lon),
+    }));
   return Response.json({ results });
 }
