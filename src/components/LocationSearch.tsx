@@ -1,8 +1,14 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  geocodeSearch,
+  reverseGeocode,
+  getBrowserLocation,
+  type GeocodeResult,
+} from "@/lib/api";
 
-type Result = { name: string; lat: number; lon: number };
+type Result = GeocodeResult;
 
 export default function LocationSearch() {
   const router = useRouter();
@@ -13,8 +19,10 @@ export default function LocationSearch() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Result[]>([]);
 
-
-  const debounce = <T extends unknown[]>(fn: (...args: T) => void, ms: number) => {
+  const debounce = <T extends unknown[]>(
+    fn: (...args: T) => void,
+    ms: number,
+  ) => {
     let t: ReturnType<typeof setTimeout> | undefined;
     return (...args: T) => {
       clearTimeout(t);
@@ -31,14 +39,13 @@ export default function LocationSearch() {
         }
         setLoading(true);
         try {
-          const res = await fetch(`/api/geocode?q=${encodeURIComponent(term)}`);
-          const data = (await res.json()) as { results: Result[] };
+          const data = await geocodeSearch(term);
           setResults(data.results || []);
         } finally {
           setLoading(false);
         }
       }, 250),
-    []
+    [],
   );
 
   useEffect(() => {
@@ -55,30 +62,23 @@ export default function LocationSearch() {
       router.push(`${pathname}?${params.toString()}`);
       setOpen(false);
     },
-    [router, pathname, sp]
+    [router, pathname, sp],
   );
 
-  const useMyLocation = useCallback(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        let name: string | undefined;
-        try {
-          const res = await fetch(
-            `/api/reverse-geocode?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`
-          );
-          const data = (await res.json()) as { name?: string };
-          name = data.name;
-        } catch (err) {
-          console.error("Reverse geocode failed", err);
-        }
-        applyLocation(pos.coords.latitude, pos.coords.longitude, name);
-      },
-      (err) => {
-        console.error("Geolocation error", err);
-      },
-      { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
-    );
+  const useMyLocation = useCallback(async () => {
+    try {
+      const pos = await getBrowserLocation();
+      let name: string | undefined;
+      try {
+        const data = await reverseGeocode(pos.lat, pos.lon);
+        name = data.name || undefined;
+      } catch (err) {
+        console.error("Reverse geocode failed", err);
+      }
+      applyLocation(pos.lat, pos.lon, name);
+    } catch (err) {
+      console.error("Geolocation error", err);
+    }
   }, [applyLocation]);
 
   return (
@@ -95,7 +95,9 @@ export default function LocationSearch() {
         />
         {open && (results.length > 0 || loading) && (
           <div className="absolute z-20 mt-1 w-full rounded-md border border-black/10 dark:border-white/10 bg-white/95 dark:bg-zinc-900/95 shadow-sm max-h-64 overflow-auto">
-            {loading && <div className="px-3 py-2 text-xs text-gray-500">Searching…</div>}
+            {loading && (
+              <div className="px-3 py-2 text-xs text-gray-500">Searching…</div>
+            )}
             {results.map((r, i) => (
               <button
                 key={`${r.lat},${r.lon}-${i}`}
@@ -111,10 +113,10 @@ export default function LocationSearch() {
       <button
         className="px-3 py-2 rounded-md border border-black/10 dark:border-white/10 text-sm hover:bg-gray-50 dark:hover:bg-zinc-800"
         onClick={useMyLocation}
-        title="Use my location"
-        aria-label="Use my location"
+        title="Use precise location"
+        aria-label="Use precise location"
       >
-        Use my location
+        Precise location
       </button>
     </div>
   );

@@ -1,6 +1,3 @@
-export const runtime = 'edge';
-
-import { NextRequest } from "next/server";
 import { mean, std } from "@/lib/stats";
 import { wrapDayOfYear } from "@/lib/time";
 
@@ -15,16 +12,43 @@ type OMArchiveResponse = {
   daily?: ArchiveDaily;
 };
 
-export const revalidate = 2592000; // 30 days hard cache
+export type NormalsResult = {
+  dayofyear: number;
+  hourly: [];
+  daily: {
+    t_mean_c_mean: number;
+    t_mean_c_std?: number;
+    wind_max_ms_mean: number | null;
+    wind_max_ms_std?: number;
+  };
+  sample_size: number;
+  week_series: Array<{
+    doy: number;
+    t_mean_c_mean: number;
+    t_mean_c_std?: number;
+    n: number;
+    wind_max_ms_mean: number | null;
+    wind_max_ms_std?: number;
+    wind_n: number;
+  }>;
+  fortnight_series: Array<{
+    doy: number;
+    t_mean_c_mean: number;
+    t_mean_c_std?: number;
+    n: number;
+    wind_max_ms_mean: number | null;
+    wind_max_ms_std?: number;
+    wind_n: number;
+  }>;
+  samples: {
+    temp_c: number[];
+    wind_ms: number[];
+  };
+};
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const lat = Number(searchParams.get("lat"));
-  const lon = Number(searchParams.get("lon"));
-  const doy = Number(searchParams.get("doy")); // 1..365
-
+export async function getNormals(lat: number, lon: number, doy: number): Promise<NormalsResult> {
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(doy)) {
-    return Response.json({ error: "lat, lon and doy are required" }, { status: 400 });
+    throw new Error("lat, lon and doy are required");
   }
 
   // Fetch ERA5 daily mean temperature for 1991-01-01 .. 2020-12-31
@@ -37,15 +61,15 @@ export async function GET(req: NextRequest) {
     timezone: "auto",
   });
   const url = `https://archive-api.open-meteo.com/v1/era5?${params.toString()}`;
-  const res = await fetch(url, { next: { revalidate } });
+  const res = await fetch(url);
   if (!res.ok) {
-    return Response.json({ error: "upstream error", status: res.status }, { status: 502 });
+    throw new Error(`Archive API error: ${res.status}`);
   }
   const data = (await res.json()) as OMArchiveResponse;
 
   const daily = data.daily;
   if (!daily?.time || !daily.temperature_2m_mean) {
-    return Response.json({ error: "no daily data" }, { status: 502 });
+    throw new Error("no daily data");
   }
 
   // Build sample S: values within +/-7 days of provided day-of-year across all years
@@ -153,7 +177,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  return Response.json({
+  return {
     dayofyear: doy,
     hourly: [],
     daily: {
@@ -169,7 +193,7 @@ export async function GET(req: NextRequest) {
       temp_c: values,
       wind_ms: windValues,
     },
-  });
+  };
 }
 
 function getDOY(d: Date): number {

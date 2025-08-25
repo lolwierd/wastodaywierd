@@ -1,7 +1,3 @@
-export const runtime = 'edge';
-
-import { NextRequest } from "next/server";
-
 type OMForecastResponse = {
   timezone: string;
   hourly?: { time: string[]; temperature_2m?: number[]; wind_speed_10m?: number[] };
@@ -13,16 +9,22 @@ type OMForecastResponse = {
   };
 };
 
-export const revalidate = 900; // 15 minutes SWR
+export type ForecastResult = {
+  day: string;
+  hourly: Array<{ ts: string; temp_c: number; wind_ms: number }>;
+  daily: {
+    t_mean_c: number;
+    t_min_c: number;
+    t_max_c: number;
+    wind_max_ms: number;
+  };
+  daily_series: Array<{ day: string; t_mean_c: number; wind_max_ms: number }>;
+  tz: string;
+};
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const lat = Number(searchParams.get("lat"));
-  const lon = Number(searchParams.get("lon"));
-  const date = searchParams.get("date"); // yyyy-mm-dd (optional)
-
+export async function getForecast(lat: number, lon: number, date?: string): Promise<ForecastResult> {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-    return Response.json({ error: "lat and lon are required" }, { status: 400 });
+    throw new Error("lat and lon are required");
   }
 
   const params = new URLSearchParams({
@@ -35,9 +37,9 @@ export async function GET(req: NextRequest) {
   });
 
   const url = `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
-  const res = await fetch(url, { next: { revalidate } });
+  const res = await fetch(url);
   if (!res.ok) {
-    return Response.json({ error: "upstream error", status: res.status }, { status: 502 });
+    throw new Error(`Forecast API error: ${res.status}`);
   }
   const data = (await res.json()) as OMForecastResponse;
 
@@ -82,7 +84,7 @@ export async function GET(req: NextRequest) {
     wind_max_ms: pickDaily(data.daily?.time, data.daily?.wind_speed_10m_max, today),
   };
 
-  return Response.json({ day: today, hourly, daily, daily_series: dailySeries, tz: data.timezone });
+  return { day: today, hourly, daily, daily_series: dailySeries, tz: data.timezone };
 }
 
 function pickDaily(
