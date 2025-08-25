@@ -1,103 +1,162 @@
-import Image from "next/image";
+import { dayOfYear, wrapDayOfYear } from "@/lib/time";
+import { headers } from "next/headers";
+import WeeklyNormalsPanel from "@/components/WeeklyNormalsPanel";
+import UpcomingAnomalyChart from "@/components/UpcomingAnomalyChart";
+import { percentileOf } from "@/lib/stats";
+import ChartCard from "@/components/ChartCard";
+import LocationSearch from "@/components/LocationSearch";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+type ForecastOut = {
+  day: string;
+  tz: string;
+  daily: { t_mean_c: number; wind_max_ms: number };
+  daily_series?: Array<{ day: string; t_mean_c: number; wind_max_ms: number }>;
+};
+
+type NormalsOut = {
+  daily: { t_mean_c_mean: number; t_mean_c_std?: number; wind_max_ms_mean: number | null; wind_max_ms_std?: number };
+  sample_size: number;
+  week_series?: Array<{ doy: number; t_mean_c_mean: number; t_mean_c_std?: number; n: number; wind_max_ms_mean: number | null; wind_max_ms_std?: number; wind_n: number }>;
+  fortnight_series?: Array<{ doy: number; t_mean_c_mean: number; t_mean_c_std?: number; n: number; wind_max_ms_mean: number | null; wind_max_ms_std?: number; wind_n: number }>;
+  samples?: { temp_c: number[]; wind_ms: number[] };
+};
+
+async function getBaseUrl(): Promise<string> {
+  const h = await headers();
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  return `${proto}://${host}`;
+}
+
+export default async function Home({ searchParams }: { searchParams?: Promise<Record<string, string>> }) {
+  const spObj = searchParams ? await searchParams : undefined;
+  // Derive location: query params -> IP geo -> fallback to Vadodara
+  let lat = Number(spObj?.lat);
+  let lon = Number(spObj?.lon);
+  const base = process.env.NEXT_PUBLIC_BASE_URL || (await getBaseUrl());
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    try {
+      const geo = await fetch(new URL(`/api/geo`, base)).then((r) => r.json());
+      if (Number.isFinite(geo.lat) && Number.isFinite(geo.lon)) {
+        lat = geo.lat;
+        lon = geo.lon;
+      }
+    } catch {}
+  }
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    lat = 22.3072; // Vadodara fallback
+    lon = 73.1812;
+  }
+  const today = new Date();
+  const doy = dayOfYear(today);
+  const [forecast, normals] = await Promise.all([
+    fetch(new URL(`/api/forecast?lat=${lat}&lon=${lon}`, base), { cache: "no-store" }).then(
+      (r) => r.json() as Promise<ForecastOut>
+    ),
+    fetch(new URL(`/api/normals?lat=${lat}&lon=${lon}&doy=${doy}`, base)).then(
+      (r) => r.json() as Promise<NormalsOut>
+    ),
+  ]);
+
+  const tActual = forecast.daily.t_mean_c;
+  const tNormal = normals.daily.t_mean_c_mean;
+  const delta = Number.isFinite(tActual) && Number.isFinite(tNormal) ? tActual - tNormal : NaN;
+  const wActual = forecast.daily.wind_max_ms;
+  const wNormal = normals.daily.wind_max_ms_mean;
+  const wDelta = Number.isFinite(wActual) && Number.isFinite(wNormal as number) ? wActual - (wNormal as number) : NaN;
+
+  const tPct = normals.samples?.temp_c && Number.isFinite(tActual)
+    ? percentileOf(tActual, normals.samples.temp_c)
+    : NaN;
+  const wPct = normals.samples?.wind_ms && Number.isFinite(wActual)
+    ? percentileOf(wActual, normals.samples.wind_ms)
+    : NaN;
+  const tZ = normals.daily.t_mean_c_std ? (delta / (normals.daily.t_mean_c_std || 1)) : undefined;
+  const wZ = normals.daily.wind_max_ms_std ? (wDelta / (normals.daily.wind_max_ms_std || 1)) : undefined;
+
+  // Prepare week trend values from normals
+  // use week series from normals for charts
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
+    <div className="min-h-screen p-6 flex flex-col items-center gap-8">
+      <header className="w-full max-w-3xl flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Was today weird?</h1>
+        <div className="text-sm text-gray-500">{forecast.day} • {forecast.tz}</div>
+      </header>
+      <LocationSearch />
+      <main className="w-full max-w-3xl flex flex-col gap-6">
+        <section className="rounded-2xl border border-black/10 dark:border-white/10 p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="flex flex-col gap-2">
+            <div className="text-sm text-gray-600">Temperature anomaly</div>
+            <div className="text-5xl font-bold">{fmtDelta(delta, "°C")}</div>
+            <div className="text-sm text-gray-600">
+              Actual {fmt(tActual)} °C vs normal {fmt(tNormal)} °C
+              {Number.isFinite(tPct) && ` • p${tPct.toFixed(0)}`}
+              {tZ != null && Number.isFinite(tZ) && ` • z=${tZ.toFixed(1)}`}
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="text-sm text-gray-600">Wind anomaly</div>
+            <div className="text-5xl font-bold">{fmtDelta(wDelta, "m/s")}</div>
+            <div className="text-sm text-gray-600">
+              Actual {fmt(wActual)} m/s vs normal {fmt(wNormal)} m/s
+              {Number.isFinite(wPct) && ` • p${wPct.toFixed(0)}`}
+              {wZ != null && Number.isFinite(wZ) && ` • z=${wZ.toFixed(1)}`}
+            </div>
+          </div>
+          <div className="md:col-span-2 text-xs text-gray-500">Normals 1991–2020 • sample {normals.sample_size}</div>
+        </section>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+      {/* Weekly normals with bands (temp + wind) */}
+      {normals.week_series && normals.week_series.length > 0 && (
+        <ChartCard title="Normals this week" subtitle="Mean values (± std)">
+          <WeeklyNormalsPanel
+            data={normals.week_series.map((p, i) => ({
+              label: i - 3 === 0 ? "Today" : i - 3 < 0 ? `${i - 3}` : `+${i - 3}`,
+              temp: p.t_mean_c_mean,
+              tStd: p.t_mean_c_std,
+              wind: p.wind_max_ms_mean ?? undefined,
+              wStd: p.wind_max_ms_std,
+            }))}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
+        </ChartCard>
+      )}
+
+      {/* Upcoming 7 days anomalies (temperature) */}
+      {forecast.daily_series && normals.fortnight_series && (
+        <ChartCard title="Next 7 days" subtitle="Temperature anomaly vs normal">
+          <UpcomingAnomalyChart
+            data={forecast.daily_series
+              .filter((d) => d.day >= forecast.day)
+              .slice(0, 7)
+              .map((d, idx) => {
+                const dt = new Date(d.day + "T00:00:00Z");
+                const doy2 = dayOfYear(dt);
+                const n = normals.fortnight_series!.find((x) => x.doy === wrapDayOfYear(doy2));
+                const normal = n?.t_mean_c_mean ?? NaN;
+                const anomaly = Number.isFinite(d.t_mean_c) && Number.isFinite(normal) ? d.t_mean_c - normal : NaN;
+                return { day: idx === 0 ? "Today" : d.day.slice(5), anomaly, normal, actual: d.t_mean_c };
+              })}
           />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+        </ChartCard>
+      )}
+      <footer className="text-xs text-gray-500">
+        Data from Open‑Meteo. Normals 1991 to 2020.
       </footer>
     </div>
   );
+}
+
+function isFiniteNumber(n: unknown): n is number {
+  return typeof n === "number" && Number.isFinite(n);
+}
+function fmt(n: unknown): string {
+  return isFiniteNumber(n) ? n.toFixed(1) : "–";
+}
+function fmtDelta(n: unknown, unit: string): string {
+  if (!isFiniteNumber(n)) return "–";
+  const v = n;
+  return `${v >= 0 ? "+" : ""}${v.toFixed(1)} ${unit}`;
 }
