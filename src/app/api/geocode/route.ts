@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 
+export const runtime = 'edge';
+
 export const revalidate = 86400; // 1 day cache for same query
 
 export async function GET(req: NextRequest) {

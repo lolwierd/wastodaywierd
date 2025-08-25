@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { NextRequest } from "next/server";
 import { mean, std } from "@/lib/stats";
 import { wrapDayOfYear } from "@/lib/time";

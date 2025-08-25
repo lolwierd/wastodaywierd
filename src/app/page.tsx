@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { dayOfYear, wrapDayOfYear } from "@/lib/time";
 import { headers } from "next/headers";
 import WeeklyNormalsPanel from "@/components/WeeklyNormalsPanel";

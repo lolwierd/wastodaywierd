@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { NextRequest } from "next/server";
 
 export const revalidate = 3600; // 1 hour
