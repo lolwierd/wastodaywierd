@@ -37,6 +37,7 @@ export default async function Home({ searchParams }: { searchParams?: Promise<Re
   // Derive location: query params -> IP geo -> fallback to Vadodara
   let lat = Number(spObj?.lat);
   let lon = Number(spObj?.lon);
+  let locationName = spObj?.loc;
   const base = process.env.NEXT_PUBLIC_BASE_URL || (await getBaseUrl());
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
     try {
@@ -45,11 +46,15 @@ export default async function Home({ searchParams }: { searchParams?: Promise<Re
         lat = geo.lat;
         lon = geo.lon;
       }
+      if (!locationName && geo?.city) {
+        locationName = geo.city as string;
+      }
     } catch {}
   }
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
     lat = 22.3072; // Vadodara fallback
     lon = 73.1812;
+    if (!locationName) locationName = "Vadodara";
   }
   const today = new Date();
   const doy = dayOfYear(today);
@@ -85,7 +90,14 @@ export default async function Home({ searchParams }: { searchParams?: Promise<Re
     <div className="min-h-screen p-6 flex flex-col items-center gap-8">
       <header className="w-full max-w-3xl flex items-center justify-between">
         <h1 className="text-xl font-semibold">Was today weird?</h1>
-        <div className="text-sm text-gray-500">{forecast.day} • {forecast.tz}</div>
+        <div className="flex items-center gap-2">
+          <div className="text-sm text-gray-500">{forecast.day} • {forecast.tz}</div>
+          {locationName && (
+            <span className="px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-200">
+              {locationName}
+            </span>
+          )}
+        </div>
       </header>
       <LocationSearch />
       <main className="w-full max-w-3xl flex flex-col gap-6">

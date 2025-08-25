@@ -13,8 +13,6 @@ export default function LocationSearch() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Result[]>([]);
 
-  const latSP = sp.get("lat");
-  const lonSP = sp.get("lon");
 
   const debounce = <T extends unknown[]>(fn: (...args: T) => void, ms: number) => {
     let t: ReturnType<typeof setTimeout> | undefined;
@@ -48,10 +46,12 @@ export default function LocationSearch() {
   }, [q, search]);
 
   const applyLocation = useCallback(
-    (lat: number, lon: number) => {
+    (lat: number, lon: number, name?: string) => {
       const params = new URLSearchParams(sp.toString());
       params.set("lat", String(lat));
       params.set("lon", String(lon));
+      if (name) params.set("loc", name);
+      else params.delete("loc");
       router.push(`${pathname}?${params.toString()}`);
       setOpen(false);
     },
@@ -61,11 +61,21 @@ export default function LocationSearch() {
   const useMyLocation = useCallback(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        applyLocation(pos.coords.latitude, pos.coords.longitude);
+      async (pos) => {
+        let name: string | undefined;
+        try {
+          const res = await fetch(
+            `/api/reverse-geocode?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`
+          );
+          const data = (await res.json()) as { name?: string };
+          name = data.name;
+        } catch (err) {
+          console.error("Reverse geocode failed", err);
+        }
+        applyLocation(pos.coords.latitude, pos.coords.longitude, name);
       },
-      () => {
-        // ignore error silently
+      (err) => {
+        console.error("Geolocation error", err);
       },
       { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
     );
@@ -80,7 +90,7 @@ export default function LocationSearch() {
             setQ(e.target.value);
             setOpen(true);
           }}
-          placeholder="Search city or place"
+          placeholder="Search city"
           className="w-full px-3 py-2 rounded-md border border-black/10 dark:border-white/10 bg-white/70 dark:bg-zinc-900/50 backdrop-blur text-sm outline-none focus:ring-2 focus:ring-blue-500"
         />
         {open && (results.length > 0 || loading) && (
@@ -90,7 +100,7 @@ export default function LocationSearch() {
               <button
                 key={`${r.lat},${r.lon}-${i}`}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-zinc-800"
-                onClick={() => applyLocation(r.lat, r.lon)}
+                onClick={() => applyLocation(r.lat, r.lon, r.name)}
               >
                 {r.name}
               </button>
