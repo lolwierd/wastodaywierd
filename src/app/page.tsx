@@ -1,5 +1,6 @@
 export const runtime = 'edge';
 
+import { Suspense } from "react";
 import { dayOfYear, wrapDayOfYear } from "@/lib/time";
 import { headers } from "next/headers";
 import WeeklyNormalsPanel from "@/components/WeeklyNormalsPanel";
@@ -58,47 +59,143 @@ export default async function Home({ searchParams }: { searchParams?: Promise<Re
   }
   const today = new Date();
   const doy = dayOfYear(today);
-  const [forecast, normals] = await Promise.all([
-    fetch(new URL(`/api/forecast?lat=${lat}&lon=${lon}`, base), { cache: "no-store" }).then(
-      (r) => r.json() as Promise<ForecastOut>
-    ),
-    fetch(new URL(`/api/normals?lat=${lat}&lon=${lon}&doy=${doy}`, base)).then(
-      (r) => r.json() as Promise<NormalsOut>
-    ),
-  ]);
 
-  const tActual = forecast.daily.t_mean_c;
-  const tNormal = normals.daily.t_mean_c_mean;
-  const delta = Number.isFinite(tActual) && Number.isFinite(tNormal) ? tActual - tNormal : NaN;
-  const wActual = forecast.daily.wind_max_ms;
-  const wNormal = normals.daily.wind_max_ms_mean;
-  const wDelta = Number.isFinite(wActual) && Number.isFinite(wNormal as number) ? wActual - (wNormal as number) : NaN;
+  const forecastPromise = fetch(new URL(`/api/forecast?lat=${lat}&lon=${lon}`, base), { cache: "no-store" }).then((r) => {
+    if (!r.ok) throw new Error("Forecast fetch failed");
+    return r.json() as Promise<ForecastOut>;
+  });
 
-  const tPct = normals.samples?.temp_c && Number.isFinite(tActual)
-    ? percentileOf(tActual, normals.samples.temp_c)
-    : NaN;
-  const wPct = normals.samples?.wind_ms && Number.isFinite(wActual)
-    ? percentileOf(wActual, normals.samples.wind_ms)
-    : NaN;
-  const tZ = normals.daily.t_mean_c_std ? (delta / (normals.daily.t_mean_c_std || 1)) : undefined;
-  const wZ = normals.daily.wind_max_ms_std ? (wDelta / (normals.daily.wind_max_ms_std || 1)) : undefined;
-
-  // Prepare week trend values from normals
-  // use week series from normals for charts
+  const normalsPromise = fetch(new URL(`/api/normals?lat=${lat}&lon=${lon}&doy=${doy}`, base)).then((r) => {
+    if (!r.ok) throw new Error("Normals fetch failed");
+    return r.json() as Promise<NormalsOut>;
+  });
 
   return (
     <div className="min-h-screen p-6 flex flex-col items-center gap-8">
-      <header className="w-full max-w-3xl flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Was today weird?</h1>
-        <div className="flex items-center gap-2">
-          <div className="text-sm text-gray-500">{forecast.day} • {forecast.tz}</div>
-          {locationName && (
-            <span className="px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-200">
-              {locationName}
-            </span>
+      <Suspense fallback={<LoadingCards />}>
+        <Content
+          locationName={locationName}
+          forecastPromise={forecastPromise}
+          normalsPromise={normalsPromise}
+        />
+      </Suspense>
+    </div>
+  );
+}
+
+function LoadingCards() {
+  return (
+    <div className="w-full max-w-3xl flex flex-col gap-6 animate-pulse">
+      <div className="h-8 bg-gray-200 dark:bg-zinc-800 rounded-md" />
+      <div className="h-10 bg-gray-200 dark:bg-zinc-800 rounded-md" />
+      <section className="rounded-2xl border border-black/10 dark:border-white/10 p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="h-16 bg-gray-200 dark:bg-zinc-800 rounded-md" />
+        <div className="h-16 bg-gray-200 dark:bg-zinc-800 rounded-md" />
+      </section>
+    </div>
+  );
+}
+
+async function Content({
+  locationName,
+  forecastPromise,
+  normalsPromise,
+}: {
+  locationName?: string;
+  forecastPromise: Promise<ForecastOut>;
+  normalsPromise: Promise<NormalsOut>;
+}) {
+  const [forecastRes, normalsRes] = await Promise.allSettled([
+    forecastPromise,
+    normalsPromise,
+  ]);
+
+  let forecast: ForecastOut | null = null;
+  let normals: NormalsOut | null = null;
+  let forecastError: string | null = null;
+  let normalsError: string | null = null;
+
+  if (forecastRes.status === "fulfilled") {
+    forecast = forecastRes.value;
+  } else {
+    forecastError = "Forecast unavailable; try again later";
+  }
+  if (normalsRes.status === "fulfilled") {
+    normals = normalsRes.value;
+  } else {
+    normalsError = "Normals unavailable; try again later";
+  }
+
+  const header = (
+    <header className="w-full max-w-3xl flex items-center justify-between">
+      <h1 className="text-xl font-semibold">Was today weird?</h1>
+      <div className="flex items-center gap-2">
+        {forecast && (
+          <div className="text-sm text-gray-500">
+            {forecast.day} • {forecast.tz}
+          </div>
+        )}
+        {locationName && (
+          <span className="px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-200">
+            {locationName}
+          </span>
+        )}
+      </div>
+    </header>
+  );
+
+  if (!forecast || !normals) {
+    return (
+      <>
+        {header}
+        <LocationSearch />
+        <main className="w-full max-w-3xl flex flex-col gap-6">
+          {forecastError && (
+            <div className="rounded-2xl border border-black/10 dark:border-white/10 p-6 text-center text-sm text-gray-600">
+              {forecastError}
+            </div>
           )}
-        </div>
-      </header>
+          {normalsError && (
+            <div className="rounded-2xl border border-black/10 dark:border-white/10 p-6 text-center text-sm text-gray-600">
+              {normalsError}
+            </div>
+          )}
+        </main>
+      </>
+    );
+  }
+
+  const tActual = forecast.daily.t_mean_c;
+  const tNormal = normals.daily.t_mean_c_mean;
+  const delta =
+    Number.isFinite(tActual) && Number.isFinite(tNormal)
+      ? tActual - tNormal
+      : NaN;
+  const wActual = forecast.daily.wind_max_ms;
+  const wNormal = normals.daily.wind_max_ms_mean;
+  const wDelta =
+    Number.isFinite(wActual) && Number.isFinite(wNormal as number)
+      ? wActual - (wNormal as number)
+      : NaN;
+
+  const tPct =
+    normals.samples?.temp_c && Number.isFinite(tActual)
+      ? percentileOf(tActual, normals.samples.temp_c)
+      : NaN;
+  const wPct =
+    normals.samples?.wind_ms && Number.isFinite(wActual)
+      ? percentileOf(wActual, normals.samples.wind_ms)
+      : NaN;
+  const tZ = normals.daily.t_mean_c_std
+    ? delta / (normals.daily.t_mean_c_std || 1)
+    : undefined;
+  const wZ = normals.daily.wind_max_ms_std
+    ? wDelta / (normals.daily.wind_max_ms_std || 1)
+    : undefined;
+
+  return (
+    <>
+      {header}
       <LocationSearch />
       <main className="w-full max-w-3xl flex flex-col gap-6">
         <section className="rounded-2xl border border-black/10 dark:border-white/10 p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -120,7 +217,9 @@ export default async function Home({ searchParams }: { searchParams?: Promise<Re
               {wZ != null && Number.isFinite(wZ) && ` • z=${wZ.toFixed(1)}`}
             </div>
           </div>
-          <div className="md:col-span-2 text-xs text-gray-500">Normals 1991–2020 • sample {normals.sample_size}</div>
+          <div className="md:col-span-2 text-xs text-gray-500">
+            Normals 1991–2020 • sample {normals.sample_size}
+          </div>
         </section>
       </main>
       {/* Weekly normals with bands (temp + wind) */}
@@ -137,7 +236,6 @@ export default async function Home({ searchParams }: { searchParams?: Promise<Re
           />
         </ChartCard>
       )}
-
       {/* Upcoming 7 days anomalies (temperature) */}
       {forecast.daily_series && normals.fortnight_series && (
         <ChartCard title="Next 7 days" subtitle="Temperature anomaly vs normal">
@@ -148,10 +246,20 @@ export default async function Home({ searchParams }: { searchParams?: Promise<Re
               .map((d, idx) => {
                 const dt = new Date(d.day + "T00:00:00Z");
                 const doy2 = dayOfYear(dt);
-                const n = normals.fortnight_series!.find((x) => x.doy === wrapDayOfYear(doy2));
+                const n = normals.fortnight_series!.find(
+                  (x) => x.doy === wrapDayOfYear(doy2)
+                );
                 const normal = n?.t_mean_c_mean ?? NaN;
-                const anomaly = Number.isFinite(d.t_mean_c) && Number.isFinite(normal) ? d.t_mean_c - normal : NaN;
-                return { day: idx === 0 ? "Today" : d.day.slice(5), anomaly, normal, actual: d.t_mean_c };
+                const anomaly =
+                  Number.isFinite(d.t_mean_c) && Number.isFinite(normal)
+                    ? d.t_mean_c - normal
+                    : NaN;
+                return {
+                  day: idx === 0 ? "Today" : d.day.slice(5),
+                  anomaly,
+                  normal,
+                  actual: d.t_mean_c,
+                };
               })}
           />
         </ChartCard>
@@ -159,7 +267,7 @@ export default async function Home({ searchParams }: { searchParams?: Promise<Re
       <footer className="text-xs text-gray-500">
         Data from Open‑Meteo. Normals 1991 to 2020.
       </footer>
-    </div>
+    </>
   );
 }
 

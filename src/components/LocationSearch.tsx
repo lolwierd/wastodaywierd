@@ -12,7 +12,7 @@ export default function LocationSearch() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Result[]>([]);
-
+  const [message, setMessage] = useState<string | null>(null);
 
   const debounce = <T extends unknown[]>(fn: (...args: T) => void, ms: number) => {
     let t: ReturnType<typeof setTimeout> | undefined;
@@ -27,13 +27,24 @@ export default function LocationSearch() {
       debounce(async (term: string) => {
         if (!term || term.length < 2) {
           setResults([]);
+          setMessage(null);
           return;
         }
         setLoading(true);
+        setMessage(null);
         try {
           const res = await fetch(`/api/geocode?q=${encodeURIComponent(term)}`);
+          if (!res.ok) throw new Error("Network error");
           const data = (await res.json()) as { results: Result[] };
-          setResults(data.results || []);
+          if (data.results && data.results.length > 0) {
+            setResults(data.results);
+          } else {
+            setResults([]);
+            setMessage("No locations found");
+          }
+        } catch {
+          setResults([]);
+          setMessage("Search failed; check your connection");
         } finally {
           setLoading(false);
         }
@@ -93,9 +104,12 @@ export default function LocationSearch() {
           placeholder="Search city"
           className="w-full px-3 py-2 rounded-md border border-black/10 dark:border-white/10 bg-white/70 dark:bg-zinc-900/50 backdrop-blur text-sm outline-none focus:ring-2 focus:ring-blue-500"
         />
-        {open && (results.length > 0 || loading) && (
+        {open && (results.length > 0 || loading || message) && (
           <div className="absolute z-20 mt-1 w-full rounded-md border border-black/10 dark:border-white/10 bg-white/95 dark:bg-zinc-900/95 shadow-sm max-h-64 overflow-auto">
             {loading && <div className="px-3 py-2 text-xs text-gray-500">Searching…</div>}
+            {!loading && message && (
+              <div className="px-3 py-2 text-xs text-gray-500">{message}</div>
+            )}
             {results.map((r, i) => (
               <button
                 key={`${r.lat},${r.lon}-${i}`}
