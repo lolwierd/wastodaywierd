@@ -7,6 +7,8 @@ import UpcomingAnomalyChart from "@/components/UpcomingAnomalyChart";
 import { percentileOf } from "@/lib/stats";
 import ChartCard from "@/components/ChartCard";
 import LocationSearch from "@/components/LocationSearch";
+import AirQualitySummary from "@/components/AirQualitySummary";
+import { AirQuality } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -58,14 +60,17 @@ export default async function Home({ searchParams }: { searchParams?: Promise<Re
   }
   const today = new Date();
   const doy = dayOfYear(today);
-  const [forecast, normals] = await Promise.all([
-    fetch(new URL(`/api/forecast?lat=${lat}&lon=${lon}`, base), { cache: "no-store" }).then(
-      (r) => r.json() as Promise<ForecastOut>
-    ),
-    fetch(new URL(`/api/normals?lat=${lat}&lon=${lon}&doy=${doy}`, base)).then(
-      (r) => r.json() as Promise<NormalsOut>
-    ),
-  ]);
+    const [forecast, normals, air] = await Promise.all([
+      fetch(new URL(`/api/forecast?lat=${lat}&lon=${lon}`, base), { cache: "no-store" }).then(
+        (r) => r.json() as Promise<ForecastOut>
+      ),
+      fetch(new URL(`/api/normals?lat=${lat}&lon=${lon}&doy=${doy}`, base)).then(
+        (r) => r.json() as Promise<NormalsOut>
+      ),
+      fetch(new URL(`/api/airquality?lat=${lat}&lon=${lon}`, base)).then(
+        (r) => r.json() as Promise<AirQuality>
+      ),
+    ]);
 
   const tActual = forecast.daily.t_mean_c;
   const tNormal = normals.daily.t_mean_c_mean;
@@ -100,8 +105,9 @@ export default async function Home({ searchParams }: { searchParams?: Promise<Re
         </div>
       </header>
       <LocationSearch />
-      <main className="w-full max-w-3xl flex flex-col gap-6">
-        <section className="rounded-2xl border border-black/10 dark:border-white/10 p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <main className="w-full max-w-3xl flex flex-col gap-6">
+          <AirQualitySummary data={air} />
+          <section className="rounded-2xl border border-black/10 dark:border-white/10 p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="flex flex-col gap-2">
             <div className="text-sm text-gray-600">Temperature anomaly</div>
             <div className="text-5xl font-bold">{fmtDelta(delta, "°C")}</div>

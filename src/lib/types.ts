@@ -31,3 +31,13 @@ export type TodayResult = {
   source: { today: "forecast"; yesterday: "reanalysis" | "forecast" };
 };
 
+export type AirQuality = {
+  ts?: string;
+  us_aqi?: number;
+  pm2_5?: number;
+  pm10?: number;
+  ozone?: number;
+  nitrogen_dioxide?: number;
+  sulphur_dioxide?: number;
+};
+
