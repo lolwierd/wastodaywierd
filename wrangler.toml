@@ -1,0 +1,10 @@
+name = "wastodaywierd"
+compatibility_date = "2025-08-25"
+
+# Configuration for `wrangler pages deploy`
+# These settings are often configured directly in the
+# Cloudflare dashboard when using the Git integration.
+[pages]
+build_output_dir = ".next"
+# I see you're using pnpm from your lockfile.
+build_command = "pnpm build"
