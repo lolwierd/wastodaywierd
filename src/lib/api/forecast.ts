@@ -1,24 +1,36 @@
 type OMForecastResponse = {
   timezone: string;
-  hourly?: { time: string[]; temperature_2m?: number[]; wind_speed_10m?: number[] };
+  hourly?: {
+    time: string[];
+    temperature_2m?: number[];
+    wind_speed_10m?: number[];
+    weathercode?: number[];
+  };
   daily?: {
     time: string[];
     temperature_2m_min?: number[];
     temperature_2m_max?: number[];
     wind_speed_10m_max?: number[];
+    weathercode?: number[];
   };
 };
 
 export type ForecastResult = {
   day: string;
-  hourly: Array<{ ts: string; temp_c: number; wind_ms: number }>;
+  hourly: Array<{ ts: string; temp_c: number; wind_ms: number; wmo_code: number }>;
   daily: {
     t_mean_c: number;
     t_min_c: number;
     t_max_c: number;
     wind_max_ms: number;
+    wmo_code: number;
   };
-  daily_series: Array<{ day: string; t_mean_c: number; wind_max_ms: number }>;
+  daily_series: Array<{
+    day: string;
+    t_mean_c: number;
+    wind_max_ms: number;
+    wmo_code: number;
+  }>;
   tz: string;
 };
 
@@ -31,8 +43,8 @@ export async function getForecast(lat: number, lon: number, date?: string): Prom
     latitude: String(lat),
     longitude: String(lon),
     timezone: "auto",
-    hourly: ["temperature_2m", "wind_speed_10m"].join(","),
-    daily: ["temperature_2m_min", "temperature_2m_max", "wind_speed_10m_max"].join(","),
+    hourly: ["temperature_2m", "wind_speed_10m", "weathercode"].join(","),
+    daily: ["temperature_2m_min", "temperature_2m_max", "wind_speed_10m_max", "weathercode"].join(","),
     forecast_days: "8",
   });
 
@@ -44,14 +56,20 @@ export async function getForecast(lat: number, lon: number, date?: string): Prom
   const data = (await res.json()) as OMForecastResponse;
 
   // Normalize
-  const hourly = [] as { ts: string; temp_c: number; wind_ms: number }[];
-  if (data.hourly?.time && data.hourly.temperature_2m && data.hourly.wind_speed_10m) {
+  const hourly = [] as { ts: string; temp_c: number; wind_ms: number; wmo_code: number }[];
+  if (
+    data.hourly?.time &&
+    data.hourly.temperature_2m &&
+    data.hourly.wind_speed_10m &&
+    data.hourly.weathercode
+  ) {
     for (let i = 0; i < data.hourly.time.length; i++) {
       const ts = data.hourly.time[i];
       const t = data.hourly.temperature_2m[i];
       const w = data.hourly.wind_speed_10m[i];
-      if (typeof t === "number" && typeof w === "number") {
-        hourly.push({ ts, temp_c: t, wind_ms: w });
+      const wc = data.hourly.weathercode[i];
+      if (typeof t === "number" && typeof w === "number" && typeof wc === "number") {
+        hourly.push({ ts, temp_c: t, wind_ms: w, wmo_code: wc });
       }
     }
   }
@@ -73,6 +91,7 @@ export async function getForecast(lat: number, lon: number, date?: string): Prom
       day,
       t_mean_c: avgFor(dayMap, day),
       wind_max_ms: pickDaily(data.daily?.time, data.daily?.wind_speed_10m_max, day),
+      wmo_code: pickDaily(data.daily?.time, data.daily?.weathercode, day),
     }));
 
   // Today aggregates
@@ -82,9 +101,16 @@ export async function getForecast(lat: number, lon: number, date?: string): Prom
     t_min_c: pickDaily(data.daily?.time, data.daily?.temperature_2m_min, today),
     t_max_c: pickDaily(data.daily?.time, data.daily?.temperature_2m_max, today),
     wind_max_ms: pickDaily(data.daily?.time, data.daily?.wind_speed_10m_max, today),
+    wmo_code: pickDaily(data.daily?.time, data.daily?.weathercode, today),
   };
 
-  return { day: today, hourly, daily, daily_series: dailySeries, tz: data.timezone };
+  return {
+    day: today,
+    hourly,
+    daily,
+    daily_series: dailySeries,
+    tz: data.timezone,
+  };
 }
 
 function pickDaily(
