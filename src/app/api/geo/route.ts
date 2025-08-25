@@ -48,6 +48,9 @@ export async function GET(req: NextRequest) {
     }
   } catch {}
 
-  return Response.json({ error: "geo unavailable" }, { status: 204 });
+  // Return an explicit error response instead of using a 204 status code,
+  // which does not allow a response body. Using 503 (Service Unavailable)
+  // communicates the failure while still allowing a JSON payload.
+  return Response.json({ error: "geo unavailable" }, { status: 503 });
 }
 
