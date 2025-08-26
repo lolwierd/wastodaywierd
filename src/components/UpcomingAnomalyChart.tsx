@@ -1,8 +1,23 @@
 "use client";
-import { Bar, BarChart, CartesianGrid, Line, Tooltip, XAxis, YAxis, ResponsiveContainer } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  Tooltip,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
+} from "recharts";
 import { MinimalTooltipContent } from "@/components/ChartTooltip";
 
-type Item = { day: string; anomaly: number; normal: number; actual?: number };
+type Item = {
+  day: string;
+  anomaly: number;
+  normal: number;
+  actual?: number;
+  icon?: string;
+};
 
 type TTPayload = { value?: number; color?: string; name?: string; dataKey?: string | number };
 type TTProps = { active?: boolean; payload?: TTPayload[]; label?: string | number };
@@ -15,7 +30,31 @@ export default function UpcomingAnomalyChart({ data }: { data: Item[] }) {
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ left: 12, right: 12, top: 8, bottom: 8 }}>
           <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-          <XAxis dataKey="day" tick={{ fontSize: 12 }} tickMargin={6} />
+          <XAxis
+            dataKey="day"
+            tick={(props: {
+              x: number;
+              y: number;
+              payload?: { value?: string; payload?: Item };
+            }) => {
+              const { x, y, payload } = props;
+              const icon = payload?.payload?.icon;
+              return (
+                <g transform={`translate(${x},${y})`}>
+                  {icon && (
+                    <text x={0} y={0} dy={-8} textAnchor="middle" fontSize={14}>
+                      {icon}
+                    </text>
+                  )}
+                  <text x={0} y={0} dy={12} textAnchor="middle" fontSize={12}>
+                    {payload?.value}
+                  </text>
+                </g>
+              );
+            }}
+            interval={0}
+            tickLine={false}
+          />
           <YAxis tick={{ fontSize: 12 }} width={40} />
           <Tooltip
             isAnimationActive={false}
