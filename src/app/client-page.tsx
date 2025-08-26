@@ -16,6 +16,7 @@ import {
 import { getWeatherCodeInfo } from "@/lib/weathercodes";
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 function MainContent() {
   const searchParams = useSearchParams();
@@ -294,6 +295,10 @@ function MainContent() {
           />
         </ChartCard>
       )}
+      <p className="text-sm text-gray-600 dark:text-gray-400 max-w-3xl w-full">
+        This site shows how today’s temperature and wind differ from your
+        local 1991–2020 normals. <Link href="/how-it-works" className="underline hover:no-underline">How it works</Link>.
+      </p>
       <footer className="text-xs text-gray-500">
         Data from Open‑Meteo. Normals 1991 to 2020.
       </footer>

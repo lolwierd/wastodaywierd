@@ -12,37 +12,28 @@ export type GeoError = {
 };
 
 export async function getCurrentLocation(): Promise<GeoResult> {
-  // Get location from IP using a CORS-friendly service
-  try {
-    // Using ipapi.co which supports CORS
-    const res = await fetch("https://ipapi.co/json/", {
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      const lat = Number(data.latitude);
-      const lon = Number(data.longitude);
-
-      if (Number.isFinite(lat) && Number.isFinite(lon)) {
-        return {
-          lat,
-          lon,
-          city: data.city || undefined,
-          region: data.region || undefined,
-          country: data.country_name || undefined,
-          source: "ipapi",
-        };
-      }
-    }
-  } catch (ipError) {
-    console.warn("IP geolocation failed:", ipError);
+  // Resolve via our server-side endpoint so proxies (e.g., Cloudflare)
+  // can provide the correct client IP via headers.
+  const res = await fetch("/api/geo", {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) {
+    throw new Error("geo unavailable");
   }
-
-  // If all methods fail, throw an error
-  throw new Error("geo unavailable");
+  const data = await res.json();
+  const lat = Number(data.lat);
+  const lon = Number(data.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    throw new Error("geo unavailable");
+  }
+  return {
+    lat,
+    lon,
+    city: data.city || undefined,
+    region: data.region || undefined,
+    country: data.country || undefined,
+    source: data.source || "api/geo",
+  };
 }
 
 // Get location via browser geolocation (user-initiated only)
