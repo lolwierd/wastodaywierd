@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
-  geocodeSearch,
-  reverseGeocode,
+  omGeocodeSearch,
+  omReverseGeocode,
   getBrowserLocation,
   type GeocodeResult,
 } from "@/lib/api";
@@ -39,7 +39,7 @@ export default function LocationSearch() {
         }
         setLoading(true);
         try {
-          const data = await geocodeSearch(term);
+          const data = await omGeocodeSearch(term);
           setResults(data.results || []);
         } finally {
           setLoading(false);
@@ -70,7 +70,7 @@ export default function LocationSearch() {
       const pos = await getBrowserLocation();
       let name: string | undefined;
       try {
-        const data = await reverseGeocode(pos.lat, pos.lon);
+        const data = await omReverseGeocode(pos.lat, pos.lon);
         name = data.name || undefined;
       } catch (err) {
         console.error("Reverse geocode failed", err);

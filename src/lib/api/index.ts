@@ -1,14 +1,15 @@
 // Main API utilities for client-side data fetching
-// All external API calls (Open-Meteo, Nominatim) are made directly from the browser
+// All external API calls (Open-Meteo) are made directly from the browser
 
 export { getForecast, type ForecastResult } from "./forecast";
 export { getNormals, type NormalsResult } from "./normals";
 export {
-  geocodeSearch,
+  omGeocodeSearch,
+  omReverseGeocode,
   type GeocodeResult,
   type GeocodeResponse,
-} from "./geocode";
-export { reverseGeocode, type ReverseGeocodeResult } from "./reverse-geocode";
+  type ReverseGeocodeResult,
+} from "./om-geocode";
 export {
   getCurrentLocation,
   getCurrentLocationSafe,
