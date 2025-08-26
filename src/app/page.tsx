@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 function MainContent() {
   const searchParams = useSearchParams();
@@ -92,6 +93,10 @@ function MainContent() {
             <div className="w-20 h-6 bg-gray-200 dark:bg-zinc-700 rounded-full animate-pulse"></div>
           </div>
         </header>
+
+        <div className="w-full max-w-3xl text-center">
+          <div className="w-64 h-4 bg-gray-200 dark:bg-zinc-700 rounded mx-auto animate-pulse"></div>
+        </div>
 
         {/* LocationSearch skeleton */}
         <div className="flex items-center gap-2 w-full max-w-3xl">
@@ -214,6 +219,13 @@ function MainContent() {
           )}
         </div>
       </header>
+      <p className="text-sm text-gray-600 text-center">
+        Compares today’s weather with 1991–2020 normals.{' '}
+        <Link href="/about" className="underline">
+          How it works
+        </Link>
+        .
+      </p>
       <LocationSearch />
       <main className="w-full max-w-3xl flex flex-col gap-6">
         <section className="rounded-2xl border border-black/10 dark:border-white/10 p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -302,6 +314,10 @@ function LoadingSkeleton() {
           <div className="w-20 h-6 bg-gray-200 dark:bg-zinc-700 rounded-full animate-pulse"></div>
         </div>
       </header>
+
+      <div className="w-full max-w-3xl text-center">
+        <div className="w-64 h-4 bg-gray-200 dark:bg-zinc-700 rounded mx-auto animate-pulse"></div>
+      </div>
 
       {/* LocationSearch skeleton */}
       <div className="flex items-center gap-2 w-full max-w-3xl">
