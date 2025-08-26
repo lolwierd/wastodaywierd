@@ -9,9 +9,11 @@ import LocationSearch from "@/components/LocationSearch";
 import {
   getForecast,
   getNormals,
+  getAirQuality,
   getCurrentLocationSafe,
   type ForecastResult,
   type NormalsResult,
+  type AirQualityResult,
 } from "@/lib/api";
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -20,6 +22,7 @@ function MainContent() {
   const searchParams = useSearchParams();
   const [forecast, setForecast] = useState<ForecastResult | null>(null);
   const [normals, setNormals] = useState<NormalsResult | null>(null);
+  const [airQuality, setAirQuality] = useState<AirQualityResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [locationName, setLocationName] = useState<string | null>(null);
@@ -61,13 +64,15 @@ function MainContent() {
         const today = new Date();
         const doy = dayOfYear(today);
 
-        const [forecastData, normalsData] = await Promise.all([
+        const [forecastData, normalsData, airData] = await Promise.all([
           getForecast(lat, lon),
           getNormals(lat, lon, doy),
+          getAirQuality(lat, lon),
         ]);
 
         setForecast(forecastData);
         setNormals(normalsData);
+        setAirQuality(airData);
       } catch (err) {
         console.error("Failed to load data:", err);
         setError(
@@ -114,6 +119,12 @@ function MainContent() {
             </div>
             <div className="md:col-span-2 w-48 h-3 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
           </section>
+          <section className="rounded-2xl border border-black/10 dark:border-white/10 p-6 grid grid-cols-2 gap-4">
+            <div className="w-24 h-4 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
+            <div className="w-24 h-4 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
+            <div className="w-24 h-4 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
+            <div className="w-24 h-4 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
+          </section>
         </main>
 
         {/* Chart skeletons */}
@@ -136,7 +147,7 @@ function MainContent() {
     );
   }
 
-  if (error || !forecast || !normals) {
+  if (error || !forecast || !normals || !airQuality) {
     return (
       <div className="min-h-screen p-6 flex flex-col items-center gap-8">
         {/* Header */}
@@ -239,6 +250,17 @@ function MainContent() {
             Normals 1991–2020 • sample {normals.sample_size}
           </div>
         </section>
+        {airQuality && (
+          <section className="rounded-2xl border border-black/10 dark:border-white/10 p-6">
+            <div className="text-sm text-gray-600 mb-2">Air quality</div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>PM2.5: {fmt(airQuality.pm2_5)} µg/m³</div>
+              <div>PM10: {fmt(airQuality.pm10)} µg/m³</div>
+              <div>O₃: {fmt(airQuality.ozone)} µg/m³</div>
+              <div>US AQI: {fmtInt(airQuality.us_aqi)}</div>
+            </div>
+          </section>
+        )}
       </main>
       {/* Weekly normals with bands (temp + wind) */}
       {normals.week_series && normals.week_series.length > 0 && (
@@ -324,6 +346,12 @@ function LoadingSkeleton() {
           </div>
           <div className="md:col-span-2 w-48 h-3 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
         </section>
+        <section className="rounded-2xl border border-black/10 dark:border-white/10 p-6 grid grid-cols-2 gap-4">
+          <div className="w-24 h-4 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
+          <div className="w-24 h-4 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
+          <div className="w-24 h-4 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
+          <div className="w-24 h-4 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
+        </section>
       </main>
 
       <footer className="text-xs text-gray-500">
@@ -346,6 +374,9 @@ function isFiniteNumber(n: unknown): n is number {
 }
 function fmt(n: unknown): string {
   return isFiniteNumber(n) ? n.toFixed(1) : "–";
+}
+function fmtInt(n: unknown): string {
+  return isFiniteNumber(n) ? n.toFixed(0) : "–";
 }
 function fmtDelta(n: unknown, unit: string): string {
   if (!isFiniteNumber(n)) return "–";

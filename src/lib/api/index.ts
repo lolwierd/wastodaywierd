@@ -3,6 +3,7 @@
 
 export { getForecast, type ForecastResult } from "./forecast";
 export { getNormals, type NormalsResult } from "./normals";
+export { getAirQuality, type AirQualityResult } from "./air-quality";
 export {
   geocodeSearch,
   type GeocodeResult,
@@ -20,11 +21,13 @@ export {
 // Import types for internal use
 import type { ForecastResult } from "./forecast";
 import type { NormalsResult } from "./normals";
+import type { AirQualityResult } from "./air-quality";
 
 // Re-export commonly used types for convenience
 export type WeatherData = {
   forecast: ForecastResult;
   normals: NormalsResult;
+  air?: AirQualityResult;
   location: {
     lat: number;
     lon: number;
