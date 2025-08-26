@@ -20,6 +20,14 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses Open‑Meteo APIs and Recharts for charts.
 
+## Caching
+
+Forecast and normals requests are cached for the duration of the browser session.
+Results are stored in `sessionStorage` when available and fall back to an in-memory map.
+Subsequent calls to `getForecast` or `getNormals` with the same arguments reuse cached
+data. Pass `forceRefresh: true` as the last argument to either function to bypass the
+cache and fetch fresh data.
+
 ## Learn More
 
 To learn more about Next.js, see the official docs: https://nextjs.org/docs
