@@ -103,7 +103,7 @@ function MainContent() {
 
         {/* Main content skeleton */}
         <main className="w-full max-w-3xl flex flex-col gap-6">
-          <section className="rounded-2xl border border-black/10 dark:border-white/10 p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <section className="rounded-2xl border border-black/10 dark:border-white/10 p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="flex flex-col gap-2">
               <div className="w-32 h-4 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
               <div className="w-40 h-16 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
@@ -114,7 +114,12 @@ function MainContent() {
               <div className="w-36 h-16 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
               <div className="w-56 h-4 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
             </div>
-            <div className="md:col-span-2 w-48 h-3 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
+            <div className="flex flex-col gap-2">
+              <div className="w-28 h-4 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
+              <div className="w-32 h-16 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
+              <div className="w-48 h-4 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
+            </div>
+            <div className="md:col-span-3 w-48 h-3 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
           </section>
         </main>
 
@@ -185,6 +190,12 @@ function MainContent() {
     Number.isFinite(wActual) && Number.isFinite(wNormal as number)
       ? wActual - (wNormal as number)
       : NaN;
+  const hActual = forecast.daily.rh_mean_pct;
+  const hNormal = normals.daily.rh_pct_mean;
+  const hDelta =
+    Number.isFinite(hActual) && Number.isFinite(hNormal as number)
+      ? hActual - (hNormal as number)
+      : NaN;
 
   const tPct =
     normals.samples?.temp_c && Number.isFinite(tActual)
@@ -194,11 +205,18 @@ function MainContent() {
     normals.samples?.wind_ms && Number.isFinite(wActual)
       ? percentileOf(wActual, normals.samples.wind_ms)
       : NaN;
+  const hPct =
+    normals.samples?.rh_pct && Number.isFinite(hActual)
+      ? percentileOf(hActual, normals.samples.rh_pct)
+      : NaN;
   const tZ = normals.daily.t_mean_c_std
     ? delta / (normals.daily.t_mean_c_std || 1)
     : undefined;
   const wZ = normals.daily.wind_max_ms_std
     ? wDelta / (normals.daily.wind_max_ms_std || 1)
+    : undefined;
+  const hZ = normals.daily.rh_pct_std
+    ? hDelta / (normals.daily.rh_pct_std || 1)
     : undefined;
   const wc = getWeatherCodeInfo(forecast.daily.wmo_code);
 
@@ -225,7 +243,7 @@ function MainContent() {
       </header>
       <LocationSearch />
       <main className="w-full max-w-3xl flex flex-col gap-6">
-        <section className="rounded-2xl border border-black/10 dark:border-white/10 p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <section className="rounded-2xl border border-black/10 dark:border-white/10 p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="flex flex-col gap-2">
             <div className="text-sm text-gray-600">Temperature anomaly</div>
             <div className="text-5xl font-bold">{fmtDelta(delta, "°C")}</div>
@@ -244,7 +262,16 @@ function MainContent() {
               {wZ != null && Number.isFinite(wZ) && ` • z=${wZ.toFixed(1)}`}
             </div>
           </div>
-          <div className="md:col-span-2 text-xs text-gray-500">
+          <div className="flex flex-col gap-2">
+            <div className="text-sm text-gray-600">Humidity anomaly</div>
+            <div className="text-5xl font-bold">{fmtDelta(hDelta, "%")}</div>
+            <div className="text-sm text-gray-600">
+              Actual {fmt(hActual)}% vs normal {fmt(hNormal)}%
+              {Number.isFinite(hPct) && ` • p${hPct.toFixed(0)}`}
+              {hZ != null && Number.isFinite(hZ) && ` • z=${hZ.toFixed(1)}`}
+            </div>
+          </div>
+          <div className="md:col-span-3 text-xs text-gray-500">
             Normals 1991–2020 • sample {normals.sample_size}
           </div>
         </section>
@@ -296,8 +323,8 @@ function MainContent() {
         </ChartCard>
       )}
       <p className="text-sm text-gray-600 dark:text-gray-400 max-w-3xl w-full">
-        This site shows how today’s temperature and wind differ from your
-        local 1991–2020 normals. <Link href="/how-it-works" className="underline hover:no-underline">How it works</Link>.
+        This site shows how today’s temperature, wind and humidity differ from
+        your local 1991–2020 normals. <Link href="/how-it-works" className="underline hover:no-underline">How it works</Link>.
       </p>
       <footer className="text-xs text-gray-500">
         Data from Open‑Meteo. Normals 1991 to 2020.
@@ -326,7 +353,7 @@ function LoadingSkeleton() {
 
       {/* Main content skeleton */}
       <main className="w-full max-w-3xl flex flex-col gap-6">
-        <section className="rounded-2xl border border-black/10 dark:border-white/10 p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <section className="rounded-2xl border border-black/10 dark:border-white/10 p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="flex flex-col gap-2">
             <div className="w-32 h-4 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
             <div className="w-40 h-16 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
@@ -337,7 +364,12 @@ function LoadingSkeleton() {
             <div className="w-36 h-16 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
             <div className="w-56 h-4 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
           </div>
-          <div className="md:col-span-2 w-48 h-3 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
+          <div className="flex flex-col gap-2">
+            <div className="w-28 h-4 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
+            <div className="w-32 h-16 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
+            <div className="w-48 h-4 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
+          </div>
+          <div className="md:col-span-3 w-48 h-3 bg-gray-200 dark:bg-zinc-700 rounded animate-pulse"></div>
         </section>
       </main>
 

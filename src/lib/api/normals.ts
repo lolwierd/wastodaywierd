@@ -5,6 +5,7 @@ type ArchiveDaily = {
   time: string[];
   temperature_2m_mean?: number[];
   wind_speed_10m_max?: number[];
+  relative_humidity_2m_mean?: number[];
 };
 
 type OMArchiveResponse = {
@@ -20,6 +21,8 @@ export type NormalsResult = {
     t_mean_c_std?: number;
     wind_max_ms_mean: number | null;
     wind_max_ms_std?: number;
+    rh_pct_mean: number | null;
+    rh_pct_std?: number;
   };
   sample_size: number;
   week_series: Array<{
@@ -43,6 +46,7 @@ export type NormalsResult = {
   samples: {
     temp_c: number[];
     wind_ms: number[];
+    rh_pct: number[];
   };
 };
 
@@ -57,7 +61,11 @@ export async function getNormals(lat: number, lon: number, doy: number): Promise
     longitude: String(lon),
     start_date: "1991-01-01",
     end_date: "2020-12-31",
-    daily: ["temperature_2m_mean", "wind_speed_10m_max"].join(","),
+    daily: [
+      "temperature_2m_mean",
+      "wind_speed_10m_max",
+      "relative_humidity_2m_mean",
+    ].join(","),
     timezone: "auto",
   });
   const url = `https://archive-api.open-meteo.com/v1/era5?${params.toString()}`;
@@ -80,6 +88,7 @@ export async function getNormals(lat: number, lon: number, doy: number): Promise
 
   const values: number[] = [];
   const windValues: number[] = [];
+  const humValues: number[] = [];
   for (let i = 0; i < daily.time.length; i++) {
     const d = new Date(daily.time[i] + "T00:00:00Z");
     const dayOfYear = getDOY(d);
@@ -88,6 +97,8 @@ export async function getNormals(lat: number, lon: number, doy: number): Promise
       if (typeof v === "number") values.push(v);
       const wv = daily.wind_speed_10m_max?.[i];
       if (typeof wv === "number") windValues.push(wv);
+      const hv = daily.relative_humidity_2m_mean?.[i];
+      if (typeof hv === "number") humValues.push(hv);
     }
   }
 
@@ -95,11 +106,14 @@ export async function getNormals(lat: number, lon: number, doy: number): Promise
   const t_mean_c_std = std(values);
   const wind_max_ms_mean = windValues.length ? mean(windValues) : (null as unknown as number);
   const wind_max_ms_std = windValues.length ? std(windValues) : undefined;
+  const rh_pct_mean = humValues.length ? mean(humValues) : (null as unknown as number);
+  const rh_pct_std = humValues.length ? std(humValues) : undefined;
 
   // Precompute day-of-year for all days to support fast smoothing queries
   const allDOY: number[] = daily.time.map((t) => getDOY(new Date(t + "T00:00:00Z")));
   const allVals: number[] = daily.temperature_2m_mean;
   const allWind: number[] | undefined = daily.wind_speed_10m_max;
+  const allHum: number[] | undefined = daily.relative_humidity_2m_mean;
 
   function smoothStats(center: number) {
     const window = new Set<number>();
@@ -120,6 +134,15 @@ export async function getNormals(lat: number, lon: number, doy: number): Promise
         }
       }
     }
+    const vsHum: number[] = [];
+    if (allHum) {
+      for (let i = 0; i < allDOY.length; i++) {
+        if (window.has(allDOY[i])) {
+          const v = allHum[i];
+          if (typeof v === "number") vsHum.push(v);
+        }
+      }
+    }
     return {
       mean: mean(vs),
       std: std(vs),
@@ -127,6 +150,9 @@ export async function getNormals(lat: number, lon: number, doy: number): Promise
       windMean: vsWind.length ? mean(vsWind) : (null as unknown as number),
       windStd: vsWind.length ? std(vsWind) : undefined,
       windN: vsWind.length,
+      humMean: vsHum.length ? mean(vsHum) : (null as unknown as number),
+      humStd: vsHum.length ? std(vsHum) : undefined,
+      humN: vsHum.length,
     };
   }
 
@@ -185,6 +211,8 @@ export async function getNormals(lat: number, lon: number, doy: number): Promise
       t_mean_c_std: t_mean_c_std ?? undefined,
       wind_max_ms_mean,
       wind_max_ms_std,
+      rh_pct_mean,
+      rh_pct_std,
     },
     sample_size: values.length,
     week_series,
@@ -192,6 +220,7 @@ export async function getNormals(lat: number, lon: number, doy: number): Promise
     samples: {
       temp_c: values,
       wind_ms: windValues,
+      rh_pct: humValues,
     },
   };
 }
