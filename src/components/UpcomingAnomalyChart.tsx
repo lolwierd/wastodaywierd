@@ -35,18 +35,19 @@ export default function UpcomingAnomalyChart({ data }: { data: Item[] }) {
             tick={(props: {
               x: number;
               y: number;
-              payload: { value: string; payload: Item };
+              payload?: { value?: string; payload?: Item };
             }) => {
               const { x, y, payload } = props;
+              const icon = payload?.payload?.icon;
               return (
                 <g transform={`translate(${x},${y})`}>
-                  {payload.payload.icon && (
+                  {icon && (
                     <text x={0} y={0} dy={-8} textAnchor="middle" fontSize={14}>
-                      {payload.payload.icon}
+                      {icon}
                     </text>
                   )}
                   <text x={0} y={0} dy={12} textAnchor="middle" fontSize={12}>
-                    {payload.value}
+                    {payload?.value}
                   </text>
                 </g>
               );
