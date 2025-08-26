@@ -214,6 +214,11 @@ function MainContent() {
           )}
         </div>
       </header>
+      {forecast.daily.sunrise && forecast.daily.sunset && (
+        <div className="text-sm text-gray-500">
+          Sunrise {fmtTime(forecast.daily.sunrise)} • Sunset {fmtTime(forecast.daily.sunset)}
+        </div>
+      )}
       <LocationSearch />
       <main className="w-full max-w-3xl flex flex-col gap-6">
         <section className="rounded-2xl border border-black/10 dark:border-white/10 p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -351,4 +356,12 @@ function fmtDelta(n: unknown, unit: string): string {
   if (!isFiniteNumber(n)) return "–";
   const v = n;
   return `${v >= 0 ? "+" : ""}${v.toFixed(1)} ${unit}`;
+}
+
+function fmtTime(ts: string | undefined): string {
+  if (!ts) return "–";
+  const d = new Date(ts);
+  return Number.isNaN(d.getTime())
+    ? "–"
+    : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }

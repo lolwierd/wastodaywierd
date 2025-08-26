@@ -6,6 +6,8 @@ type OMForecastResponse = {
     temperature_2m_min?: number[];
     temperature_2m_max?: number[];
     wind_speed_10m_max?: number[];
+    sunrise?: string[];
+    sunset?: string[];
   };
 };
 
@@ -17,6 +19,8 @@ export type ForecastResult = {
     t_min_c: number;
     t_max_c: number;
     wind_max_ms: number;
+    sunrise?: string;
+    sunset?: string;
   };
   daily_series: Array<{ day: string; t_mean_c: number; wind_max_ms: number }>;
   tz: string;
@@ -32,7 +36,13 @@ export async function getForecast(lat: number, lon: number, date?: string): Prom
     longitude: String(lon),
     timezone: "auto",
     hourly: ["temperature_2m", "wind_speed_10m"].join(","),
-    daily: ["temperature_2m_min", "temperature_2m_max", "wind_speed_10m_max"].join(","),
+    daily: [
+      "temperature_2m_min",
+      "temperature_2m_max",
+      "wind_speed_10m_max",
+      "sunrise",
+      "sunset",
+    ].join(","),
     forecast_days: "8",
   });
 
@@ -82,6 +92,8 @@ export async function getForecast(lat: number, lon: number, date?: string): Prom
     t_min_c: pickDaily(data.daily?.time, data.daily?.temperature_2m_min, today),
     t_max_c: pickDaily(data.daily?.time, data.daily?.temperature_2m_max, today),
     wind_max_ms: pickDaily(data.daily?.time, data.daily?.wind_speed_10m_max, today),
+    sunrise: pickDailyStr(data.daily?.time, data.daily?.sunrise, today),
+    sunset: pickDailyStr(data.daily?.time, data.daily?.sunset, today),
   };
 
   return { day: today, hourly, daily, daily_series: dailySeries, tz: data.timezone };
@@ -95,6 +107,16 @@ function pickDaily(
   if (!dates || !arr) return NaN as unknown as number;
   const idx = dates.findIndex((d) => d === day);
   return idx >= 0 ? (arr[idx] ?? (NaN as unknown as number)) : ((NaN as unknown) as number);
+}
+
+function pickDailyStr(
+  dates: string[] | undefined,
+  arr: string[] | undefined,
+  day: string,
+): string | undefined {
+  if (!dates || !arr) return undefined;
+  const idx = dates.findIndex((d) => d === day);
+  return idx >= 0 ? arr[idx] : undefined;
 }
 
 function avgFor(map: Map<string, { sum: number; n: number }>, day: string): number {
